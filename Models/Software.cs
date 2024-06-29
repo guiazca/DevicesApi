@@ -7,6 +7,6 @@ namespace DevicesApi.Models
         public DateTime? DataUltimaAtualizacao { get; set; }
         public string IP { get; set; }
         public int? Porta { get; set; }
-        public string URL { get; set; }
+        public string? URL { get; set; }
     }
 }

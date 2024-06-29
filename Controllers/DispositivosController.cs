@@ -16,10 +16,11 @@ namespace DevicesApi.Controllers
         {
             _context = context;
         }
+
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<DispositivoDto>>> GetDispositivos()
+        public async Task<ActionResult<IEnumerable<DispositivoDto>>> GetDispositivos(int page = 1, int pageSize = 10, int? marcaId = null, int? localizacaoId = null)
         {
-            var dispositivos = await _context.Dispositivos
+            var query = _context.Dispositivos
                 .Include(d => d.Modelo)
                 .ThenInclude(m => m.Marca)
                 .Include(d => d.Localizacao)
@@ -38,11 +39,35 @@ namespace DevicesApi.Controllers
                     URL = d.URL,
                     MacAddress = d.MacAddress,
                     Descricao = d.Descricao
-                })
+                });
+
+            if (marcaId.HasValue)
+            {
+                query = query.Where(d => d.MarcaId == marcaId.Value);
+            }
+
+            if (localizacaoId.HasValue)
+            {
+                query = query.Where(d => d.LocalizacaoId == localizacaoId.Value);
+            }
+
+            var totalItems = await query.CountAsync();
+            var dispositivos = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
 
-            return Ok(dispositivos);
+            var result = new
+            {
+                TotalItems = totalItems,
+                Page = page,
+                PageSize = pageSize,
+                Items = dispositivos
+            };
+
+            return Ok(result);
         }
+
         [HttpGet("{id}")]
         public async Task<ActionResult<DispositivoDto>> GetDispositivo(int id)
         {
@@ -75,6 +100,7 @@ namespace DevicesApi.Controllers
 
             return Ok(dispositivo);
         }
+
         [HttpPost]
         public async Task<ActionResult<DispositivoDto>> PostDispositivo(DispositivoDto dispositivoDto)
         {
@@ -82,9 +108,12 @@ namespace DevicesApi.Controllers
             {
                 ModeloId = dispositivoDto.ModeloId,
                 LocalizacaoId = dispositivoDto.LocalizacaoId,
+                Nome = dispositivoDto.Nome,
                 IP = dispositivoDto.IP,
                 Porta = dispositivoDto.Porta,
                 URL = dispositivoDto.URL,
+                MacAddress = dispositivoDto.MacAddress,
+                Descricao = dispositivoDto.Descricao
             };
 
             _context.Dispositivos.Add(dispositivo);
@@ -94,6 +123,7 @@ namespace DevicesApi.Controllers
 
             return CreatedAtAction(nameof(GetDispositivo), new { id = dispositivoDto.Id }, dispositivoDto);
         }
+
         [HttpPut("{id}")]
         public async Task<IActionResult> PutDispositivo(int id, DispositivoDto dispositivoDto)
         {
@@ -123,6 +153,7 @@ namespace DevicesApi.Controllers
 
             return NoContent();
         }
+
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteDispositivo(int id)
         {
