@@ -8,11 +8,11 @@ namespace DevicesApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class DispositivosController : ControllerBase
+    public class DevicesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
 
-        public DispositivosController(ApplicationDbContext context)
+        public DevicesController(ApplicationDbContext context)
         {
             _context = context;
         }
