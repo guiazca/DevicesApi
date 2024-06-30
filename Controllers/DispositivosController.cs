@@ -3,7 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using DevicesApi.Data;
 using DevicesApi.DTOs;
 using DevicesApi.Models;
-using System.Linq;
+using System.Globalization;
+using System.Text;
 
 namespace DevicesApi.Controllers
 {
@@ -18,64 +19,65 @@ namespace DevicesApi.Controllers
             _context = context;
         }
 
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<DispositivoDto>>> GetDispositivos(int page = 1, int pageSize = 10, int? marcaId = null, int? localizacaoId = null, int? categoriaId = null)
+       [HttpGet]
+public async Task<ActionResult<IEnumerable<DispositivoDto>>> GetDispositivos(int page = 1, int pageSize = 10, int? marcaId = null, int? localizacaoId = null, int? categoriaId = null)
+{
+    var query = _context.Dispositivos
+        .Include(d => d.Modelo)
+        .ThenInclude(m => m.Marca)
+        .Include(d => d.Localizacao)
+        .Include(d => d.Categoria)
+        .Select(d => new DispositivoDto
         {
-            var query = _context.Dispositivos
-                .Include(d => d.Modelo)
-                .ThenInclude(m => m.Marca)
-                .Include(d => d.Localizacao)
-                .Include(d => d.Categoria)
-                .Select(d => new DispositivoDto
-                {
-                    Id = d.Id,
-                    ModeloId = d.ModeloId,
-                    ModeloNome = d.Modelo.Nome,
-                    MarcaId = d.Modelo.MarcaId,
-                    MarcaNome = d.Modelo.Marca.Nome,
-                    LocalizacaoId = d.LocalizacaoId,
-                    LocalizacaoNome = d.Localizacao.Nome,
-                    CategoriaId = d.CategoriaId,
-                    CategoriaNome = d.Categoria.Nome,
-                    Nome = d.Nome,
-                    IP = d.IP,
-                    Porta = d.Porta,
-                    URL = d.URL,
-                    MacAddress = d.MacAddress,
-                    Descricao = d.Descricao
-                });
+            Id = d.Id,
+            ModeloId = d.ModeloId,
+            ModeloNome = d.Modelo.Nome,
+            MarcaId = d.Modelo.MarcaId,
+            MarcaNome = d.Modelo.Marca.Nome,
+            LocalizacaoId = d.LocalizacaoId,
+            LocalizacaoNome = d.Localizacao.Nome,
+            CategoriaId = d.CategoriaId,
+            CategoriaNome = d.Categoria.Nome,
+            Nome = d.Nome,
+            IP = d.IP,
+            Porta = d.Porta,
+            URL = d.URL,
+            MacAddress = d.MacAddress,
+            Descricao = d.Descricao,
+            IsOnline = d.IsOnline // Adiciona IsOnline
+        });
 
-            if (marcaId.HasValue)
-            {
-                query = query.Where(d => d.MarcaId == marcaId.Value);
-            }
+    if (marcaId.HasValue)
+    {
+        query = query.Where(d => d.MarcaId == marcaId.Value);
+    }
 
-            if (localizacaoId.HasValue)
-            {
-                query = query.Where(d => d.LocalizacaoId == localizacaoId.Value);
-            }
+    if (localizacaoId.HasValue)
+    {
+        query = query.Where(d => d.LocalizacaoId == localizacaoId.Value);
+    }
 
-            if (categoriaId.HasValue)
-            {
-                query = query.Where(d => d.CategoriaId == categoriaId.Value);
-            }
+    if (categoriaId.HasValue)
+    {
+        query = query.Where(d => d.CategoriaId == categoriaId.Value);
+    }
 
-            var totalItems = await query.CountAsync();
-            var dispositivos = await query
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync();
+    var totalItems = await query.CountAsync();
+    var dispositivos = await query
+        .Skip((page - 1) * pageSize)
+        .Take(pageSize)
+        .ToListAsync();
 
-            var result = new
-            {
-                TotalItems = totalItems,
-                Page = page,
-                PageSize = pageSize,
-                Items = dispositivos
-            };
+    var result = new
+    {
+        TotalItems = totalItems,
+        Page = page,
+        PageSize = pageSize,
+        Items = dispositivos
+    };
 
-            return Ok(result);
-        }
+    return Ok(result);
+}
 
         [HttpGet("{id}")]
         public async Task<ActionResult<DispositivoDto>> GetDispositivo(int id)
@@ -182,6 +184,51 @@ namespace DevicesApi.Controllers
             await _context.SaveChangesAsync();
 
             return NoContent();
+        }
+        [HttpGet("export")]
+        public async Task<IActionResult> ExportDispositivos()
+        {
+            var dispositivos = await _context.Dispositivos
+                .Include(d => d.Modelo)
+                .ThenInclude(m => m.Marca)
+                .Include(d => d.Localizacao)
+                .Include(d => d.Categoria)
+                .Select(d => new DispositivoDto
+                {
+                    Id = d.Id,
+                    ModeloId = d.ModeloId,
+                    ModeloNome = d.Modelo.Nome,
+                    MarcaId = d.Modelo.MarcaId,
+                    MarcaNome = d.Modelo.Marca.Nome,
+                    LocalizacaoId = d.LocalizacaoId,
+                    LocalizacaoNome = d.Localizacao.Nome,
+                    CategoriaId = d.CategoriaId,
+                    CategoriaNome = d.Categoria.Nome,
+                    Nome = d.Nome,
+                    IP = d.IP,
+                    Porta = d.Porta,
+                    URL = d.URL,
+                    MacAddress = d.MacAddress,
+                    Descricao = d.Descricao
+                })
+                .ToListAsync();
+
+            var csv = GenerateCsv(dispositivos);
+            var fileName = $"dispositivos_{DateTime.Now.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture)}.csv";
+            return File(new UTF8Encoding().GetBytes(csv), "text/csv", fileName);
+        }
+
+        private string GenerateCsv(IEnumerable<DispositivoDto> dispositivos)
+        {
+            var csv = new StringBuilder();
+            csv.AppendLine("Id,ModeloId,ModeloNome,MarcaId,MarcaNome,LocalizacaoId,LocalizacaoNome,CategoriaId,CategoriaNome,Nome,IP,Porta,URL,MacAddress,Descricao");
+
+            foreach (var dispositivo in dispositivos)
+            {
+                csv.AppendLine($"{dispositivo.Id},{dispositivo.ModeloId},{dispositivo.ModeloNome},{dispositivo.MarcaId},{dispositivo.MarcaNome},{dispositivo.LocalizacaoId},{dispositivo.LocalizacaoNome},{dispositivo.CategoriaId},{dispositivo.CategoriaNome},{dispositivo.Nome},{dispositivo.IP},{dispositivo.Porta},{dispositivo.URL},{dispositivo.MacAddress},{dispositivo.Descricao}");
+            }
+
+            return csv.ToString();
         }
     }
 }

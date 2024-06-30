@@ -12,8 +12,9 @@ namespace DevicesApi.DTOs
         public string URL { get; set; }
         public string? MacAddress { get; set; }
         public string? Descricao { get; set; }
-        public int MarcaId { get; set; }
+        public bool IsOnline { get; set; } // Adiciona IsOnline
         public string MarcaNome { get; set; }
+        public int MarcaId { get; set; }
 
         public string ModeloNome { get; set; }
         public string LocalizacaoNome { get; set; }
