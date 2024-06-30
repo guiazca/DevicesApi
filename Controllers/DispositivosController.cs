@@ -3,27 +3,29 @@ using Microsoft.EntityFrameworkCore;
 using DevicesApi.Data;
 using DevicesApi.DTOs;
 using DevicesApi.Models;
+using System.Linq;
 
 namespace DevicesApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class DevicesController : ControllerBase
+    public class DispositivosController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
 
-        public DevicesController(ApplicationDbContext context)
+        public DispositivosController(ApplicationDbContext context)
         {
             _context = context;
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<DispositivoDto>>> GetDispositivos(int page = 1, int pageSize = 10, int? marcaId = null, int? localizacaoId = null)
+        public async Task<ActionResult<IEnumerable<DispositivoDto>>> GetDispositivos(int page = 1, int pageSize = 10, int? marcaId = null, int? localizacaoId = null, int? categoriaId = null)
         {
             var query = _context.Dispositivos
                 .Include(d => d.Modelo)
                 .ThenInclude(m => m.Marca)
                 .Include(d => d.Localizacao)
+                .Include(d => d.Categoria)
                 .Select(d => new DispositivoDto
                 {
                     Id = d.Id,
@@ -33,6 +35,8 @@ namespace DevicesApi.Controllers
                     MarcaNome = d.Modelo.Marca.Nome,
                     LocalizacaoId = d.LocalizacaoId,
                     LocalizacaoNome = d.Localizacao.Nome,
+                    CategoriaId = d.CategoriaId,
+                    CategoriaNome = d.Categoria.Nome,
                     Nome = d.Nome,
                     IP = d.IP,
                     Porta = d.Porta,
@@ -49,6 +53,11 @@ namespace DevicesApi.Controllers
             if (localizacaoId.HasValue)
             {
                 query = query.Where(d => d.LocalizacaoId == localizacaoId.Value);
+            }
+
+            if (categoriaId.HasValue)
+            {
+                query = query.Where(d => d.CategoriaId == categoriaId.Value);
             }
 
             var totalItems = await query.CountAsync();
@@ -75,6 +84,7 @@ namespace DevicesApi.Controllers
                 .Include(d => d.Modelo)
                 .ThenInclude(m => m.Marca)
                 .Include(d => d.Localizacao)
+                .Include(d => d.Categoria)
                 .Select(d => new DispositivoDto
                 {
                     Id = d.Id,
@@ -84,6 +94,8 @@ namespace DevicesApi.Controllers
                     MarcaNome = d.Modelo.Marca.Nome,
                     LocalizacaoId = d.LocalizacaoId,
                     LocalizacaoNome = d.Localizacao.Nome,
+                    CategoriaId = d.CategoriaId,
+                    CategoriaNome = d.Categoria.Nome,
                     Nome = d.Nome,
                     IP = d.IP,
                     Porta = d.Porta,
@@ -108,6 +120,7 @@ namespace DevicesApi.Controllers
             {
                 ModeloId = dispositivoDto.ModeloId,
                 LocalizacaoId = dispositivoDto.LocalizacaoId,
+                CategoriaId = dispositivoDto.CategoriaId,
                 Nome = dispositivoDto.Nome,
                 IP = dispositivoDto.IP,
                 Porta = dispositivoDto.Porta,
@@ -141,6 +154,7 @@ namespace DevicesApi.Controllers
 
             dispositivo.ModeloId = dispositivoDto.ModeloId;
             dispositivo.LocalizacaoId = dispositivoDto.LocalizacaoId;
+            dispositivo.CategoriaId = dispositivoDto.CategoriaId;
             dispositivo.Nome = dispositivoDto.Nome;
             dispositivo.IP = dispositivoDto.IP;
             dispositivo.Porta = dispositivoDto.Porta;
