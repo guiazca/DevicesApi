@@ -5,6 +5,8 @@ using DevicesApi.DTOs;
 using DevicesApi.Models;
 using System.Globalization;
 using System.Text;
+using CsvHelper.Configuration;
+using CsvHelper;
 
 namespace DevicesApi.Controllers
 {
@@ -229,6 +231,84 @@ public async Task<ActionResult<IEnumerable<DispositivoDto>>> GetDispositivos(int
             }
 
             return csv.ToString();
+        }
+       [HttpPost("import")]
+        public async Task<IActionResult> ImportDispositivos(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest("Please upload a valid CSV file.");
+            }
+
+            var dispositivos = new List<DispositivoCsvDto>();
+            using (var stream = new StreamReader(file.OpenReadStream()))
+            {
+                var config = new CsvConfiguration(CultureInfo.InvariantCulture)
+                {
+                    PrepareHeaderForMatch = args => args.Header.ToLower(),
+                };
+                using (var csv = new CsvReader(stream, config))
+                {
+                    dispositivos = csv.GetRecords<DispositivoCsvDto>().ToList();
+                }
+            }
+
+            foreach (var dispositivoDto in dispositivos)
+            {
+                var categoria = await _context.Categorias
+                    .FirstOrDefaultAsync(c => c.Nome == dispositivoDto.CategoriaNome);
+                if (categoria == null)
+                {
+                    categoria = new Categoria { Nome = dispositivoDto.CategoriaNome };
+                    _context.Categorias.Add(categoria);
+                    await _context.SaveChangesAsync();
+                }
+
+                var localizacao = await _context.Localizacoes
+                    .FirstOrDefaultAsync(l => l.Nome == dispositivoDto.LocalizacaoNome);
+                if (localizacao == null)
+                {
+                    localizacao = new Localizacao { Nome = dispositivoDto.LocalizacaoNome };
+                    _context.Localizacoes.Add(localizacao);
+                    await _context.SaveChangesAsync();
+                }
+
+                var marca = await _context.Marcas
+                    .FirstOrDefaultAsync(m => m.Nome == dispositivoDto.MarcaNome);
+                if (marca == null)
+                {
+                    marca = new Marca { Nome = dispositivoDto.MarcaNome };
+                    _context.Marcas.Add(marca);
+                    await _context.SaveChangesAsync();
+                }
+
+                var modelo = await _context.Modelos
+                    .FirstOrDefaultAsync(m => m.Nome == dispositivoDto.ModeloNome && m.MarcaId == marca.Id);
+                if (modelo == null)
+                {
+                    modelo = new Modelo { Nome = dispositivoDto.ModeloNome, MarcaId = marca.Id };
+                    _context.Modelos.Add(modelo);
+                    await _context.SaveChangesAsync();
+                }
+
+                var dispositivo = new Dispositivo
+                {
+                    Nome = dispositivoDto.Nome,
+                    IP = dispositivoDto.IP,
+                    Porta = dispositivoDto.Porta,
+                    URL = dispositivoDto.URL,
+                    MacAddress = dispositivoDto.MacAddress,
+                    Descricao = dispositivoDto.Descricao,
+                    ModeloId = modelo.Id,
+                    LocalizacaoId = localizacao.Id,
+                    CategoriaId = categoria.Id
+                };
+
+                _context.Dispositivos.Add(dispositivo);
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok("CSV import completed successfully.");
         }
     }
 }
