@@ -1,4 +1,6 @@
-### DotnetCore ###
 # .NET Core build folders
 bin/
 obj/
+
+# Visual Studio Code folder
+.vscode/
